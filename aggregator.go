@@ -2,73 +2,41 @@ package ctx_aggregator
 
 import (
 	"context"
-	"errors"
-	"sync"
 )
 
-type ContextKey string
-
-const (
-	contextAggregatorContextKey ContextKey = "ctxAggCtxKey"
-)
-
-var (
-	InvalidType error = errors.New("Invalid type provided")
-)
-
-func NewAggregatorContext[T any](ctx context.Context) context.Context {
-	aggr := &Aggregator[T]{
-		wg: sync.WaitGroup{},
-		ch: make(chan T),
+// RegisterBaseContextAggregator init new baseAggregator[T] pointer
+// and register value to context by package key. To use multiple context
+// aggregators, use different keys in input parameters.
+func RegisterBaseContextAggregator[T any](ctx context.Context, keys ...string) context.Context {
+	aggr := &baseAggregator[T]{
+		datas: make([]T, 0),
 	}
-
-	ctx = context.WithValue(ctx, contextAggregatorContextKey, aggr)
-
-	return ctx
+	ctxKey := buildContextKey(keys...)
+	return context.WithValue(ctx, ctxKey, aggr)
 }
 
-type Aggregator[T any] struct {
-	wg sync.WaitGroup
-	ch chan T
+type baseAggregator[T any] struct {
+	datas []T
 }
 
-func Collect[T any](ctx context.Context, data T) error {
-	aggr, ok := ctx.Value(contextAggregatorContextKey).(*Aggregator[T])
+// Collect[T] collect data and append to datas slice
+// of baseAggregator
+func Collect[T any](ctx context.Context, data T, keys ...string) error {
+	ctxKey := buildContextKey(keys...)
+	agg, ok := ctx.Value(ctxKey).(*baseAggregator[T])
 	if !ok {
-		return InvalidType
+		return ErrNotFoundOrInvalid
 	}
-
-	aggr.ch <- data
+	agg.datas = append(agg.datas, data)
 	return nil
 }
 
-func CollectChan[T any](ctx context.Context, ch chan T) error {
-	aggr, ok := ctx.Value(contextAggregatorContextKey).(*Aggregator[T])
+// Aggregate[T] return collected datas
+func Aggregate[T any](ctx context.Context, keys ...string) ([]T, error) {
+	ctxKey := buildContextKey(keys...)
+	agg, ok := ctx.Value(ctxKey).(*baseAggregator[T])
 	if !ok {
-		return InvalidType
+		return nil, ErrNotFoundOrInvalid
 	}
-
-	aggr.wg.Add(1)
-	data := <-ch
-	aggr.ch <- data
-	aggr.wg.Done()
-
-	return nil
-}
-
-func Aggregate[T any](ctx context.Context) ([]T, error) {
-	aggr, ok := ctx.Value(contextAggregatorContextKey).(*Aggregator[T])
-	if !ok {
-		return nil, InvalidType
-	}
-
-	aggr.wg.Wait()
-	close(aggr.ch)
-
-	result := make([]T, len(aggr.ch))
-	for data := range aggr.ch {
-		result = append(result, data)
-	}
-
-	return result, nil
+	return agg.datas, nil
 }
