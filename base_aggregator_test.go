@@ -11,25 +11,29 @@ func funcBaseCollecInt32(ctx context.Context, keys ...string) error {
 	return Collect(ctx, int32(0), keys...)
 }
 
+func funcBaseCollecInt32WithVal(ctx context.Context, val int32, keys ...string) error {
+	return Collect(ctx, val, keys...)
+}
+
 func funcBaseCollecString(ctx context.Context, keys ...string) error {
 	return Collect(ctx, "", keys...)
 }
 
 func TestBaseContextAggregator_CollectNotFoundAggregator(t *testing.T) {
 	err := funcBaseCollecInt32(context.Background())
-	assert.Equal(t, err, ErrNotFoundOrInvalid)
+	assert.Equal(t, err, ErrNotFoundAggregator)
 }
 
 func TestBaseContextAggregator_CollectInvalidType(t *testing.T) {
 	ctx := RegisterBaseContextAggregator[int](context.Background())
 	err := funcBaseCollecInt32(ctx)
-	assert.Equal(t, err, ErrNotFoundOrInvalid)
+	assert.Equal(t, err, ErrInvalidType)
 }
 
 func TestBaseContextAggregator_AggregateNotFoundAggregator(t *testing.T) {
 	result, err := Aggregate[int](context.Background())
 	assert.Nil(t, result)
-	assert.Equal(t, err, ErrNotFoundOrInvalid)
+	assert.Equal(t, err, ErrNotFoundAggregator)
 }
 
 func TestBaseContextAggregator_AggregateInvalidType(t *testing.T) {
@@ -39,7 +43,7 @@ func TestBaseContextAggregator_AggregateInvalidType(t *testing.T) {
 
 	result, err := Aggregate[int](ctx)
 	assert.Nil(t, result)
-	assert.Equal(t, err, ErrNotFoundOrInvalid)
+	assert.Equal(t, err, ErrInvalidType)
 }
 
 func TestBaseContextAggregator_SuccessNoKey(t *testing.T) {

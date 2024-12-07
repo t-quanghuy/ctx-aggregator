@@ -4,17 +4,11 @@ import (
 	"context"
 )
 
-/*
-RegisterBaseContextAggregator register new baseAggregator[T] into context
-by package key combined with input keys.
-In order to use multiple aggregator, use different input keys.
-Example:
+var _ ContextAggregator[any] = new(baseAggregator[any])
 
-	ctx = RegisterBaseContextAggregator[int](ctx, key)
-	func () {err := Collect(ctx, value1)}()
-	func () {err := Collect(ctx, value2)}()
-	result, err = Aggregate[int](ctx, key) // result = []int{value1, value2}
-*/
+// RegisterBaseContextAggregator register a baseAggregator pointer into context
+// for collecting and aggregating data sequentially without any asynchronous
+// lock. In order to use many aggregators in a project, please use different keys.
 func RegisterBaseContextAggregator[T any](ctx context.Context, keys ...string) context.Context {
 	agg := &baseAggregator[T]{
 		datas: make([]T, 0),
@@ -27,23 +21,10 @@ type baseAggregator[T any] struct {
 	datas []T
 }
 
-// Collect[T] collect data into aggregator by key
-func Collect[T any](ctx context.Context, data T, keys ...string) error {
-	ctxKey := buildContextKey(keys...)
-	agg, ok := ctx.Value(ctxKey).(*baseAggregator[T])
-	if !ok {
-		return ErrNotFoundOrInvalid
-	}
-	agg.datas = append(agg.datas, data)
-	return nil
+func (a *baseAggregator[T]) Collect(data T) {
+	a.datas = append(a.datas, data)
 }
 
-// Aggregate[T] get data from aggregator by key
-func Aggregate[T any](ctx context.Context, keys ...string) ([]T, error) {
-	ctxKey := buildContextKey(keys...)
-	agg, ok := ctx.Value(ctxKey).(*baseAggregator[T])
-	if !ok {
-		return nil, ErrNotFoundOrInvalid
-	}
-	return agg.datas, nil
+func (a *baseAggregator[T]) Aggregate() []T {
+	return a.datas
 }
